@@ -1,6 +1,7 @@
 const dotenv = require("dotenv").config();
 const express = require("express");
 const app = express();
+const { filterByMaxSuggestedResults, filterByPopularity } = require("./lib.js");
 
 let names = require("./names.json");
 names = Object.entries(names).map(([name, times]) => ({
@@ -12,7 +13,14 @@ app.listen(process.env.PORT, () => {
   console.log(`Running on port ${process.env.PORT}`);
 });
 
-app.get(`/typehead/:searchValue`, (req, res) => {
+app.get("/typehead", (req, res) => {
+  filterByPopularity(names);
+  const filteredNames = filterByMaxSuggestedResults(names);
+  console.log("filteredNames", filteredNames);
+  res.send(filteredNames);
+});
+
+app.get("/typehead/:searchValue", (req, res) => {
   console.log("req", req.params.searchValue);
   const searchValue = req.params.searchValue.toUpperCase();
   console.log("searchValue", searchValue);
@@ -25,12 +33,8 @@ app.get(`/typehead/:searchValue`, (req, res) => {
   });
   console.log("matchedNames", matchedNames);
 
-  const filteredMatchedNames = matchedNames.filter(
-    (_, index) => index < process.env.SUGGESTION_NUMBER
-  );
-
-  filteredMatchedNames.sort((a, b) => b.times - a.times);
-  console.log("filteredMatchedNames", filteredMatchedNames);
+  const filteredMatchedNames = filterByMaxSuggestedResults(matchedNames);
+  filterByPopularity(filteredMatchedNames);
 
   res.send(filteredMatchedNames);
 });

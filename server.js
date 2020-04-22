@@ -2,7 +2,11 @@ const dotenv = require("dotenv").config();
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
-const { filterByMaxSuggestedResults, filterByPopularity } = require("./lib.js");
+const {
+  filterByMaxSuggestedResults,
+  filterByPopularity
+} = require("./src/lib.js");
+const Name = require("./src/models/Name.js");
 
 let names = require("./names.json");
 names = Object.entries(names).map(([name, times]) => ({
@@ -15,6 +19,53 @@ app.listen(process.env.PORT, () => {
 });
 
 app.use(express.json()); // necessary when using Content Type Application/JSON in a post request
+
+// connecting to the database
+const connectDb = async () => {
+  try {
+    await mongoose.connect("mongodb://localhost/people");
+    console.log("Connected to database");
+  } catch (error) {
+    console.log("An error occurred when trying to connect to database");
+  }
+};
+
+const seedDb = async namesArr => {
+  for (const name of namesArr) {
+    const newName = new Name(name);
+    await newName.save((err, obj) => {
+      if (err) {
+        return console.error(err);
+      }
+      console.log(`${obj.name} saved in the collection`);
+      console.log(obj);
+    });
+  }
+};
+
+// const getAllNamesInDb = () => {
+//   const allNames = Name.find().exec();
+//   return allNames;
+//   //   try {
+//   //     await Name.find().exec();
+//   //     return [];
+//   //   } catch (err) {
+//   //     console.log("err on all names", err);
+//   //   }
+// };
+
+connectDb();
+seedDb(names);
+// let allNames = getAllNamesInDb();
+
+const makeMorePopular = async ({ name, times }) => {
+  const updateData = { times: (times += 1) };
+  const updatedName = await Name.findOneAndUpdate({ name }, updateData, {
+    new: true
+  });
+  console.log("updatedName", updatedName);
+  return updatedName;
+};
 
 app.get("/typehead", (req, res) => {
   filterByPopularity(names);
@@ -42,23 +93,27 @@ app.get("/typehead/:searchValue", (req, res) => {
   res.send(filteredMatchedNames);
 });
 
+// check this with postman
 app.post("/typehead/set", ({ body: { name } }, res) => {
-  const searchValue = name;
-  console.log("searchValue", searchValue);
-  const matchedObj = names.find(matchedName => {
-    if (searchValue === matchedName.name) {
-      console.log("found!");
-      return matchedName;
+  Name.find().exec((err, names) => {
+    if (err) {
+      console.log("err", err);
+    }
+    const matchedObj = names.find(matchedName => {
+      if (name === matchedName.name) {
+        console.log("found!");
+        return matchedName;
+      }
+    });
+    console.log("matchedObj", matchedObj);
+
+    if (matchedObj) {
+      makeMorePopular(matchedObj);
+      console.log("success");
+      res.sendStatus(200);
+    } else {
+      console.log("not found");
+      res.sendStatus(400);
     }
   });
-  console.log("matchedObj", matchedObj);
-
-  if (matchedObj) {
-    //here do the update
-    console.log("success");
-    res.sendStatus(200);
-  } else {
-    console.log("not found");
-    res.sendStatus(400);
-  }
 });

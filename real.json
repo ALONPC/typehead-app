@@ -1,0 +1,5 @@
+{
+  "task": "Typehead Backend",
+  "configSource": "env",
+  "stack": { "type": "nodejs", "main": "server.js" }
+}

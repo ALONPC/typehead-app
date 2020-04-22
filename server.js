@@ -18,15 +18,14 @@ app.listen(process.env.PORT, () => {
   console.log(`Running on port ${process.env.PORT}`);
 });
 
-app.use(express.json()); // necessary when using Content Type Application/JSON in a post request
+app.use(express.json());
 
-// connecting to the database
 const connectDb = async () => {
   try {
     await mongoose.connect("mongodb://localhost/people");
     console.log("Connected to database");
-  } catch (error) {
-    console.log("An error occurred when trying to connect to database");
+  } catch (err) {
+    console.log("An error occurred when trying to connect to database", err);
   }
 };
 
@@ -38,54 +37,33 @@ const seedDb = async namesArr => {
         return console.error(err);
       }
       console.log(`${obj.name} saved in the collection`);
-      console.log(obj);
     });
   }
 };
 
-// const getAllNamesInDb = () => {
-//   const allNames = Name.find().exec();
-//   return allNames;
-//   //   try {
-//   //     await Name.find().exec();
-//   //     return [];
-//   //   } catch (err) {
-//   //     console.log("err on all names", err);
-//   //   }
-// };
-
 connectDb();
 seedDb(names);
-// let allNames = getAllNamesInDb();
 
 const makeMorePopular = async ({ name, times }) => {
   const updateData = { times: (times += 1) };
-  const updatedName = await Name.findOneAndUpdate({ name }, updateData, {
+  return await Name.findOneAndUpdate({ name }, updateData, {
     new: true
   });
-  console.log("updatedName", updatedName);
-  return updatedName;
 };
 
-app.get("/typehead", (req, res) => {
-  filterByPopularity(names);
-  const filteredNames = filterByMaxSuggestedResults(names);
-  console.log("filteredNames", filteredNames);
+app.get("/typehead", async (req, res) => {
+  const allNames = await Name.find().exec();
+  filterByPopularity(allNames);
+  const filteredNames = filterByMaxSuggestedResults(allNames);
   res.send(filteredNames);
 });
 
-app.get("/typehead/:searchValue", (req, res) => {
-  console.log("req", req.params.searchValue);
+app.get("/typehead/:searchValue", async (req, res) => {
+  const allNames = await Name.find().exec();
   const searchValue = req.params.searchValue.toUpperCase();
-  console.log("searchValue", searchValue);
-  const matchedNames = [];
-  names.forEach(obj => {
-    if (obj.name.toUpperCase().startsWith(searchValue)) {
-      console.log("match!", obj);
-      matchedNames.push(obj);
-    }
-  });
-  console.log("matchedNames", matchedNames);
+  const matchedNames = allNames.filter(obj =>
+    obj.name.toUpperCase().startsWith(searchValue)
+  );
 
   const filteredMatchedNames = filterByMaxSuggestedResults(matchedNames);
   filterByPopularity(filteredMatchedNames);
@@ -93,27 +71,16 @@ app.get("/typehead/:searchValue", (req, res) => {
   res.send(filteredMatchedNames);
 });
 
-// check this with postman
-app.post("/typehead/set", ({ body: { name } }, res) => {
-  Name.find().exec((err, names) => {
-    if (err) {
-      console.log("err", err);
-    }
-    const matchedObj = names.find(matchedName => {
-      if (name === matchedName.name) {
-        console.log("found!");
-        return matchedName;
-      }
-    });
-    console.log("matchedObj", matchedObj);
+app.post("/typehead/set", async ({ body: { name } }, res) => {
+  const allNames = await Name.find().exec();
+  const matchedObj = allNames.find(matchedName => name === matchedName.name);
 
-    if (matchedObj) {
-      makeMorePopular(matchedObj);
-      console.log("success");
-      res.sendStatus(200);
-    } else {
-      console.log("not found");
-      res.sendStatus(400);
-    }
-  });
+  if (matchedObj) {
+    makeMorePopular(matchedObj);
+    console.log("success");
+    res.sendStatus(200);
+  } else {
+    console.log("not found");
+    res.sendStatus(400);
+  }
 });

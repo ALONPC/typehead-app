@@ -14,11 +14,12 @@ names = Object.entries(names).map(([name, times]) => ({
   times,
 }));
 
-app.listen(process.env.PORT, () => {
-  console.log(`Running on port ${process.env.PORT}`);
+const router = express.Router({
+  strict: true,
 });
 
-app.use(express.json());
+app.enable("strict routing");
+app.set("strict routing", true);
 
 const connectDb = async () => {
   try {
@@ -58,11 +59,17 @@ app.get("/typehead/:prefix?", async (req, res) => {
     if (searchValue) {
       console.log("with paremeter");
       const regex = new RegExp(`^${searchValue}`, "i"); // means it will search and return any name that starts with the search value
-      const [trueMatchedName, ...restOfMatchedNames] = await Name.find({
+      const allNames = await Name.find({
         name: regex,
       });
-      filterByPopularity(restOfMatchedNames);
-      finalMatchedNames = [trueMatchedName, ...restOfMatchedNames];
+      const [trueMatchedName, ...restOfMatchedNames] = allNames;
+      if (searchValue === trueMatchedName) {
+        filterByPopularity(restOfMatchedNames);
+        finalMatchedNames = [trueMatchedName, ...restOfMatchedNames];
+      } else {
+        filterByPopularity(allNames);
+        finalMatchedNames = allNames;
+      }
     } else {
       console.log("no parameter");
       finalMatchedNames = await Name.find();
@@ -98,4 +105,11 @@ app.post("/typehead/set", async ({ body: { name } }, res) => {
   } catch (err) {
     return console.error(err);
   }
+});
+
+app.use(router);
+app.use(express.json());
+
+app.listen(process.env.PORT, () => {
+  console.log(`Running on port ${process.env.PORT}`);
 });

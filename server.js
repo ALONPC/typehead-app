@@ -51,31 +51,25 @@ const makeMorePopular = async ({ name, times }) => {
   });
 };
 
-app.get("/typehead", async (req, res) => {
+app.get("/typehead/:prefix?", async (req, res) => {
   try {
-    const allNames = await Name.find().exec();
-    filterByPopularity(allNames);
-    const filteredNames = filterByMaxSuggestedResults(allNames);
+    const searchValue = req.params.prefix;
+    let finalMatchedNames = [];
+    if (searchValue) {
+      console.log("with paremeter");
+      const regex = new RegExp(`^${searchValue}`, "i"); // means it will search and return any name that starts with the search value
+      const [trueMatchedName, ...restOfMatchedNames] = await Name.find({
+        name: regex,
+      });
+      filterByPopularity(restOfMatchedNames);
+      finalMatchedNames = [trueMatchedName, ...restOfMatchedNames];
+    } else {
+      console.log("no parameter");
+      finalMatchedNames = await Name.find();
+      filterByPopularity(finalMatchedNames);
+    }
 
-    res.send(filteredNames);
-    res.sendStatus(200);
-  } catch (err) {
-    return console.error(err);
-  }
-});
-
-app.get("/typehead/:searchValue", async (req, res) => {
-  try {
-    const searchValue = req.params.searchValue.toUpperCase();
-    const regex = new RegExp(`^${searchValue}`, "i"); // means it will search and return any name that starts with the search value
-    const [trueMatchedName, ...restOfMatchedNames] = await Name.find({
-      name: regex,
-    });
-
-    filterByPopularity(restOfMatchedNames);
-    const finalMatchedNames = [trueMatchedName, ...restOfMatchedNames];
     const filteredMatchedNames = filterByMaxSuggestedResults(finalMatchedNames);
-
     res.send(filteredMatchedNames);
     res.sendStatus(200);
   } catch (err) {
@@ -92,7 +86,9 @@ app.post("/typehead/set", async ({ body: { name } }, res) => {
 
     if (matchedObj) {
       const matchedResult = await makeMorePopular(matchedObj);
-      console.log("success");
+      console.log(
+        `${matchedResult.name} became *slightly* more popular with ${matchedResult.times} searches!`
+      );
       res.send(matchedResult);
       res.sendStatus(200);
     } else {

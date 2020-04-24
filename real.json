@@ -1,5 +1,8 @@
 {
-  "task": "Typehead Backend",
+  "task": "typeahead-backend",
+  "template": "default",
   "configSource": "env",
-  "stack": { "type": "nodejs", "main": "server.js" }
+  "stack": {
+    "type": "nodejs"
+  }
 }

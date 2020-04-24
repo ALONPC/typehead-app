@@ -4,14 +4,14 @@ const app = express();
 const mongoose = require("mongoose");
 const {
   filterByMaxSuggestedResults,
-  filterByPopularity
+  filterByPopularity,
 } = require("./src/lib.js");
 const Name = require("./src/models/Name.js");
 
 let names = require("./names.json");
 names = Object.entries(names).map(([name, times]) => ({
   name,
-  times
+  times,
 }));
 
 app.listen(process.env.PORT, () => {
@@ -29,7 +29,7 @@ const connectDb = async () => {
   }
 };
 
-const seedDb = async namesArr => {
+const seedDb = async (namesArr) => {
   for (const name of namesArr) {
     const newName = new Name(name);
     await newName.save((err, obj) => {
@@ -47,7 +47,7 @@ seedDb(names);
 const makeMorePopular = async ({ name, times }) => {
   const updateData = { times: (times += 1) };
   return await Name.findOneAndUpdate({ name }, updateData, {
-    new: true
+    new: true,
   });
 };
 
@@ -61,7 +61,7 @@ app.get("/typehead", async (req, res) => {
 app.get("/typehead/:searchValue", async (req, res) => {
   const allNames = await Name.find().exec();
   const searchValue = req.params.searchValue.toUpperCase();
-  const matchedNames = allNames.filter(obj =>
+  const matchedNames = allNames.filter((obj) =>
     obj.name.toUpperCase().startsWith(searchValue)
   );
 
@@ -73,11 +73,12 @@ app.get("/typehead/:searchValue", async (req, res) => {
 
 app.post("/typehead/set", async ({ body: { name } }, res) => {
   const allNames = await Name.find().exec();
-  const matchedObj = allNames.find(matchedName => name === matchedName.name);
+  const matchedObj = allNames.find((matchedName) => name === matchedName.name);
 
   if (matchedObj) {
-    makeMorePopular(matchedObj);
+    const matchedResult = await makeMorePopular(matchedObj);
     console.log("success");
+    res.send(matchedResult);
     res.sendStatus(200);
   } else {
     console.log("not found");

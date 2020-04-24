@@ -52,36 +52,54 @@ const makeMorePopular = async ({ name, times }) => {
 };
 
 app.get("/typehead", async (req, res) => {
-  const allNames = await Name.find().exec();
-  filterByPopularity(allNames);
-  const filteredNames = filterByMaxSuggestedResults(allNames);
-  res.send(filteredNames);
+  try {
+    const allNames = await Name.find().exec();
+    filterByPopularity(allNames);
+    const filteredNames = filterByMaxSuggestedResults(allNames);
+
+    res.send(filteredNames);
+    res.sendStatus(200);
+  } catch (err) {
+    return console.error(err);
+  }
 });
 
 app.get("/typehead/:searchValue", async (req, res) => {
-  const allNames = await Name.find().exec();
-  const searchValue = req.params.searchValue.toUpperCase();
-  const matchedNames = allNames.filter((obj) =>
-    obj.name.toUpperCase().startsWith(searchValue)
-  );
+  try {
+    const searchValue = req.params.searchValue.toUpperCase();
+    const regex = new RegExp(`^${searchValue}`, "i"); // means it will search and return any name that starts with the search value
+    const [trueMatchedName, ...restOfMatchedNames] = await Name.find({
+      name: regex,
+    });
 
-  const filteredMatchedNames = filterByMaxSuggestedResults(matchedNames);
-  filterByPopularity(filteredMatchedNames);
+    filterByPopularity(restOfMatchedNames);
+    const finalMatchedNames = [trueMatchedName, ...restOfMatchedNames];
+    const filteredMatchedNames = filterByMaxSuggestedResults(finalMatchedNames);
 
-  res.send(filteredMatchedNames);
+    res.send(filteredMatchedNames);
+    res.sendStatus(200);
+  } catch (err) {
+    return console.error(err);
+  }
 });
 
 app.post("/typehead/set", async ({ body: { name } }, res) => {
-  const allNames = await Name.find().exec();
-  const matchedObj = allNames.find((matchedName) => name === matchedName.name);
+  try {
+    const allNames = await Name.find().exec();
+    const matchedObj = allNames.find(
+      (matchedName) => name === matchedName.name
+    );
 
-  if (matchedObj) {
-    const matchedResult = await makeMorePopular(matchedObj);
-    console.log("success");
-    res.send(matchedResult);
-    res.sendStatus(200);
-  } else {
-    console.log("not found");
-    res.sendStatus(400);
+    if (matchedObj) {
+      const matchedResult = await makeMorePopular(matchedObj);
+      console.log("success");
+      res.send(matchedResult);
+      res.sendStatus(200);
+    } else {
+      res.send("Not found!");
+      res.sendStatus(400);
+    }
+  } catch (err) {
+    return console.error(err);
   }
 });
